@@ -10,6 +10,17 @@ independently of the packaging SemVer below.
 
 <!-- release-please -->
 
+## [0.3.0](https://github.com/pmastalerz/asterisk/compare/v0.2.0...v0.3.0) (2026-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* automate releases (release-please), harden supply chain, add runtime UX ([#13](https://github.com/pmastalerz/asterisk/issues/13))
+
+### Features
+
+* automate releases (release-please), harden supply chain, add runtime UX ([#13](https://github.com/pmastalerz/asterisk/issues/13)) ([b780850](https://github.com/pmastalerz/asterisk/commit/b78085057ab7d82a0b037f7b58ed905076de5c86))
+
 ## [0.2.0](https://github.com/pmastalerz/asterisk/releases/tag/v0.2.0) — 2026-09-08
 
 ### Features
