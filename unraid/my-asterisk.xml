@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>asterisk</Name>
+  <Repository>ghcr.io/pmastalerz/asterisk:latest</Repository>
+  <Registry>https://ghcr.io/</Registry>
+  <Network>host</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/pmastalerz/asterisk/issues</Support>
+  <Project>https://www.asterisk.org/</Project>
+  <Overview>
+Asterisk LTS built from official sources, packaged for Unraid.&#13;
+&#13;
+First start seeds sample configs plus thin container overlays (paths, logging, RTP).&#13;
+Put your own PJSIP/dialplan in the /etc/asterisk appdata path.&#13;
+&#13;
+Host network is usually simplest for SIP + RTP; bridge requires publishing signalling and the RTP range.
+  </Overview>
+  <Category>Network:Other:Tools:</Category>
+  <WebUI/>
+  <TemplateURL>https://raw.githubusercontent.com/pmastalerz/asterisk/master/unraid/my-asterisk.xml</TemplateURL>
+  <Icon>https://www.asterisk.org/wp-content/uploads/asterisk-logo.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Asterisk config" Target="/etc/asterisk" Default="/mnt/user/appdata/asterisk/etc" Mode="rw" Description="Asterisk configuration (pjsip, dialplan, rtp)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/asterisk/etc</Config>
+  <Config Name="Asterisk data" Target="/var/lib/asterisk" Default="/mnt/user/appdata/asterisk/lib" Mode="rw" Description="Asterisk var lib (sounds, astdb, keys)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/asterisk/lib</Config>
+  <Config Name="Asterisk logs" Target="/var/log/asterisk" Default="/mnt/user/appdata/asterisk/log" Mode="rw" Description="Asterisk logs" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/asterisk/log</Config>
+  <Config Name="Asterisk spool" Target="/var/spool/asterisk" Default="/mnt/user/appdata/asterisk/spool" Mode="rw" Description="Voicemail, monitor, spool" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/asterisk/spool</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User id (Unraid default share user is often 99)" Type="Variable" Display="always" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group id (Unraid users group is often 100)" Type="Variable" Display="always" Required="false" Mask="false">100</Config>
+  <Config Name="TZ" Target="TZ" Default="Europe/Warsaw" Mode="" Description="Timezone" Type="Variable" Display="always" Required="false" Mask="false">Europe/Warsaw</Config>
+</Container>

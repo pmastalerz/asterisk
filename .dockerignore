@@ -1,0 +1,14 @@
+.git
+.github
+.gitignore
+README.md
+docker-compose.yml
+unraid
+examples
+*.md
+.env
+.env.*
+config
+data
+log
+spool

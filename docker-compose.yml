@@ -1,0 +1,32 @@
+services:
+  asterisk:
+    # Prefer the published image; override with `docker compose up --build` for local builds.
+    image: ${ASTERISK_IMAGE:-ghcr.io/pmastalerz/asterisk:latest}
+    build:
+      context: .
+      args:
+        ASTERISK_VERSION: ${ASTERISK_VERSION:-22.11.0}
+        VERSION: ${VERSION:-dev}
+        BUILD_DATE: ${BUILD_DATE:-}
+    container_name: asterisk
+    # Host networking is strongly recommended for SIP + RTP.
+    network_mode: host
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Europe/Warsaw}
+    volumes:
+      - ./config:/etc/asterisk
+      - ./data:/var/lib/asterisk
+      - ./log:/var/log/asterisk
+      - ./spool:/var/spool/asterisk
+    # Bridge mode (only if you drop network_mode: host):
+    # ports:
+    #   - "5060:5060/udp"
+    #   - "5060:5060/tcp"
+    #   - "10000-20000:10000-20000/udp"
+    restart: unless-stopped
+    labels:
+      net.unraid.docker.managed: "dockerman"
+      net.unraid.docker.icon: "https://www.asterisk.org/wp-content/uploads/asterisk-logo.png"
+      net.unraid.docker.shell: "bash"

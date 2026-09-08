@@ -1,0 +1,56 @@
+---
+name: Bug report
+description: Something is broken in the image, packaging, or docs
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in what you can.
+  - type: input
+    id: image
+    attributes:
+      label: Image / version
+      description: Image tag or commit (e.g. `ghcr.io/pmastalerz/asterisk:latest`, `sha-…`)
+      placeholder: ghcr.io/pmastalerz/asterisk:22.11.0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Clear description of the unexpected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: false
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      render: shell
+    validations:
+      required: false
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Unraid
+        - Docker Compose / Linux
+        - Other
+    validations:
+      required: false

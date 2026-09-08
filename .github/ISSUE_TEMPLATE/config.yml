@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Asterisk upstream
+    url: https://www.asterisk.org/community/
+    about: Questions about Asterisk itself (dialplan, PJSIP, etc.) belong with the Asterisk community
