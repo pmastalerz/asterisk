@@ -32,8 +32,8 @@ Thanks for taking an interest in this project.
 4. Open a pull request against `main`
 
 CI on PRs pulls `ghcr.io/pmastalerz/asterisk:latest` and runs smoke tests (no compile).
-Image rebuilds happen in the Release workflow after merge when image sources change.
-Required checks must pass before merge.
+A full image rebuild runs on `main` only when `VERSION`, `Dockerfile`, `.dockerignore`, or `build/**` change
+(or on version tags / manual Release dispatch). Required checks must pass before merge.
 
 ## Scope guidelines
 

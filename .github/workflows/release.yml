@@ -5,6 +5,11 @@ on:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      force_build:
+        description: Force a full multi-arch image rebuild and publish
+        type: boolean
+        default: true
 
 concurrency:
   group: release-${{ github.ref }}
@@ -19,51 +24,86 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  IMAGE_LATEST: ghcr.io/${{ github.repository }}:latest
 
 jobs:
   changes:
-    name: Detect image changes
+    name: Detect compile vs verify
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.decide.outputs.image }}
+      compile: ${{ steps.decide.outputs.compile }}
+      verify: ${{ steps.decide.outputs.verify }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Full Asterisk compile only when upstream version or build inputs change.
       - name: Paths filter
         id: filter
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            image:
-              - 'Dockerfile'
+            compile:
               - 'VERSION'
+              - 'Dockerfile'
               - '.dockerignore'
               - 'build/**'
-              - 'root/**'
-              - 'scripts/smoke-test.sh'
-              - 'docker-compose.yml'
-              - '.env.example'
 
       - name: Decide
         id: decide
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "image=true" >> "$GITHUB_OUTPUT"
-            echo "Building: tag or manual dispatch"
-          elif [ "${{ steps.filter.outputs.image }}" = "true" ]; then
-            echo "image=true" >> "$GITHUB_OUTPUT"
-            echo "Building: image-related paths changed on main"
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.force_build }}" = "true" ]; then
+              echo "compile=true" >> "$GITHUB_OUTPUT"
+              echo "verify=false" >> "$GITHUB_OUTPUT"
+              echo "Manual dispatch: full rebuild"
+            else
+              echo "compile=false" >> "$GITHUB_OUTPUT"
+              echo "verify=true" >> "$GITHUB_OUTPUT"
+              echo "Manual dispatch: smoke against latest only"
+            fi
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "compile=true" >> "$GITHUB_OUTPUT"
+            echo "verify=false" >> "$GITHUB_OUTPUT"
+            echo "Tag push: full rebuild + GitHub Release"
+          elif [ "${{ steps.filter.outputs.compile }}" = "true" ]; then
+            echo "compile=true" >> "$GITHUB_OUTPUT"
+            echo "verify=false" >> "$GITHUB_OUTPUT"
+            echo "VERSION / Dockerfile / build/* changed — full Asterisk compile + publish"
           else
-            echo "image=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping: no image-related paths on main push"
+            echo "compile=false" >> "$GITHUB_OUTPUT"
+            echo "verify=true" >> "$GITHUB_OUTPUT"
+            echo "Same Asterisk build inputs — smoke tests only (no image rebuild)"
           fi
+
+  # Same VERSION / no build-input changes: don't recompile; just check we didn't break runtime tests.
+  verify:
+    name: Smoke against latest
+    needs: changes
+    if: needs.changes.outputs.verify == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull published image
+        run: |
+          set -euo pipefail
+          echo "No compile needed — testing ${{ env.IMAGE_LATEST }}"
+          docker pull "${{ env.IMAGE_LATEST }}"
+
+      - name: Smoke test
+        run: |
+          chmod +x scripts/smoke-test.sh
+          ./scripts/smoke-test.sh "${{ env.IMAGE_LATEST }}"
 
   build-test-publish:
     name: Build, test & publish
     needs: changes
-    if: needs.changes.outputs.image == 'true'
+    if: needs.changes.outputs.compile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -103,7 +143,6 @@ jobs:
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable={{is_default_branch}}
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable=${{ startsWith(github.ref, 'refs/tags/') }}
 
-      # One multi-arch build: push + keep amd64 locally for smoke (no second full compile).
       - name: Build and push multi-arch
         id: push
         uses: docker/build-push-action@v6
@@ -111,7 +150,6 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          load: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
