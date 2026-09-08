@@ -21,8 +21,49 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  changes:
+    name: Detect image changes
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.decide.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Paths filter
+        id: filter
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            image:
+              - 'Dockerfile'
+              - 'VERSION'
+              - '.dockerignore'
+              - 'build/**'
+              - 'root/**'
+              - 'scripts/smoke-test.sh'
+              - 'docker-compose.yml'
+              - '.env.example'
+
+      - name: Decide
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+            echo "Building: tag or manual dispatch"
+          elif [ "${{ steps.filter.outputs.image }}" = "true" ]; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+            echo "Building: image-related paths changed on main"
+          else
+            echo "image=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping: no image-related paths on main push"
+          fi
+
   build-test-publish:
     name: Build, test & publish
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -62,24 +103,7 @@ jobs:
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable={{is_default_branch}}
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable=${{ startsWith(github.ref, 'refs/tags/') }}
 
-      - name: Build (load for smoke test)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          tags: asterisk:release-test
-          build-args: |
-            ASTERISK_VERSION=${{ steps.ver.outputs.asterisk_version }}
-            VERSION=${{ github.ref_name }}
-            BUILD_DATE=${{ steps.ver.outputs.build_date }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Smoke test
-        run: |
-          chmod +x scripts/smoke-test.sh
-          ./scripts/smoke-test.sh asterisk:release-test
-
+      # One multi-arch build: push + keep amd64 locally for smoke (no second full compile).
       - name: Build and push multi-arch
         id: push
         uses: docker/build-push-action@v6
@@ -87,14 +111,32 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          load: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ASTERISK_VERSION=${{ steps.ver.outputs.asterisk_version }}
             VERSION=${{ github.ref_name }}
             BUILD_DATE=${{ steps.ver.outputs.build_date }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=asterisk-release
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: |
+            type=gha,mode=max,scope=asterisk-release
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+      - name: Pull amd64 image for smoke test
+        run: |
+          set -euo pipefail
+          REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}"
+          echo "Pulling $REF (linux/amd64)"
+          docker pull --platform linux/amd64 "$REF"
+          docker tag "$REF" asterisk:release-test
+
+      - name: Smoke test
+        run: |
+          chmod +x scripts/smoke-test.sh
+          ./scripts/smoke-test.sh asterisk:release-test
 
       - name: Create GitHub Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
