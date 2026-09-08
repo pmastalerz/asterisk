@@ -41,7 +41,7 @@ Common types:
 
 Add `!` after the type (or a `BREAKING CHANGE:` footer) for MAJOR bumps:
 
-```
+```text
 feat!: drop full-varlib mount seed path
 
 BREAKING CHANGE: users bind-mounting all of /var/lib/asterisk must now mount only db/keys/sounds.

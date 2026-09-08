@@ -17,8 +17,8 @@ TMPCFG=""
 
 cleanup() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
-  [ -n "$TMPLIB" ] && rm -rf "$TMPLIB" >/dev/null 2>&1 || true
-  [ -n "$TMPCFG" ] && rm -rf "$TMPCFG" >/dev/null 2>&1 || true
+  if [ -n "$TMPLIB" ]; then rm -rf "$TMPLIB" >/dev/null 2>&1 || true; fi
+  if [ -n "$TMPCFG" ]; then rm -rf "$TMPCFG" >/dev/null 2>&1 || true; fi
 }
 trap cleanup EXIT
 
