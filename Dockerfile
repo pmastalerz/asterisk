@@ -139,6 +139,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     tzdata \
     gettext-base \
+    procps \
     libedit2 \
     libjansson4 \
     libsqlite3-0 \

@@ -100,15 +100,24 @@ if [ -n "$TMPCFG" ]; then
   echo "$rendered" | grep -F "external_media_address=203.0.113.99" >/dev/null
 fi
 
-echo "==> ASTERISK_TERMINAL_OPTS swapped -W (checking ps for -n, no -W)"
+echo "==> ASTERISK_TERMINAL_OPTS swapped -W (checking args for -n, no -W)"
 ps_out="$(docker exec "$NAME" ps -o args= -C asterisk 2>/dev/null || true)"
 echo "$ps_out"
-echo "$ps_out" | grep -Fv -- "-W" >/dev/null
-echo "$ps_out" | grep -F -- "-n" >/dev/null
+if echo "$ps_out" | grep -F -- "-W" >/dev/null; then
+  echo "ERROR: '-W' still present in asterisk args (ASTERISK_TERMINAL_OPTS not honored)" >&2
+  exit 1
+fi
+if ! echo "$ps_out" | grep -F -- "-n" >/dev/null; then
+  echo "ERROR: '-n' missing from asterisk args (ASTERISK_TERMINAL_OPTS not applied)" >&2
+  exit 1
+fi
 
 echo "==> Asterisk process is running as user 'asterisk' (privilege drop)"
-whoami_out="$(docker exec "$NAME" sh -c "ps -o user= -C asterisk | head -n1 | tr -d ' '")"
-echo "user: $whoami_out"
-[ "$whoami_out" = "asterisk" ]
+user_out="$(docker exec "$NAME" sh -c "ps -o user= -C asterisk | head -n1 | tr -d ' '")"
+echo "user: $user_out"
+if [ "$user_out" != "asterisk" ]; then
+  echo "ERROR: expected asterisk user, got '$user_out'" >&2
+  exit 1
+fi
 
 echo "OK: smoke tests passed for $IMAGE"

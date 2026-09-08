@@ -27,24 +27,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Detect image-affecting changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            image:
+              - 'VERSION'
+              - 'ASTERISK_SHA256'
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'build/**'
+              - 'root/**'
+              - 'scripts/smoke-test.sh'
+
       - name: Try to pull published image
         id: pull
+        if: steps.filter.outputs.image != 'true'
         run: |
           set -euo pipefail
-          if docker pull "${{ env.IMAGE }}" 2>/dev/null; then
+          if docker pull "$IMAGE" 2>/dev/null; then
             echo "have_image=true" >> "$GITHUB_OUTPUT"
-            echo "Using published image ${{ env.IMAGE }}"
+            echo "Using published image $IMAGE"
           else
             echo "have_image=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Published image not available yet — falling back to local amd64 build (bootstrap)"
+            echo "::warning::Published image not available yet — will build locally"
           fi
 
-      - name: Set up Docker Buildx (fallback build)
-        if: steps.pull.outputs.have_image == 'false'
+      - name: Set up Docker Buildx
+        if: steps.filter.outputs.image == 'true' || steps.pull.outputs.have_image == 'false'
         uses: docker/setup-buildx-action@v4
 
-      - name: Build fallback image (bootstrap only)
-        if: steps.pull.outputs.have_image == 'false'
+      - name: Build local image (amd64) for smoke test
+        if: steps.filter.outputs.image == 'true' || steps.pull.outputs.have_image == 'false'
         run: |
           set -euo pipefail
           docker buildx build \
@@ -52,12 +67,15 @@ jobs:
             --load \
             --build-arg ASTERISK_VERSION="$(tr -d '[:space:]' < VERSION)" \
             --build-arg ASTERISK_SHA256="$(tr -d '[:space:]' < ASTERISK_SHA256)" \
-            --build-arg VERSION=ci-fallback \
+            --build-arg VERSION=pr-${{ github.event.pull_request.number || 'dev' }} \
             --build-arg REVISION="${GITHUB_SHA}" \
-            -t "${{ env.IMAGE }}" \
+            --cache-from "type=registry,ref=${{ env.IMAGE }}" \
+            --cache-from "type=gha,scope=ci-pr" \
+            --cache-to "type=gha,mode=max,scope=ci-pr" \
+            -t "$IMAGE" \
             .
 
       - name: Smoke test
         run: |
           chmod +x scripts/smoke-test.sh
-          ./scripts/smoke-test.sh "${{ env.IMAGE }}"
+          ./scripts/smoke-test.sh "$IMAGE"
