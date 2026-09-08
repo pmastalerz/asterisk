@@ -1,0 +1,74 @@
+name: Discover upstream Asterisk
+
+# Once a day, check downloads.asterisk.org for a newer release in our LTS
+# branch. If found, open (or update) a PR that bumps VERSION and
+# ASTERISK_SHA256 (and the README badge). The PR title uses Conventional
+# Commits so release-please picks it up as a minor bump.
+
+on:
+  schedule:
+    - cron: "17 4 * * *"    # 04:17 UTC daily
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Major Asterisk branch to track (e.g. 22)
+        default: "22"
+        required: false
+
+concurrency:
+  group: discover-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch latest upstream release
+        id: latest
+        run: |
+          chmod +x scripts/check-upstream.sh
+          scripts/check-upstream.sh "${{ github.event.inputs.branch || '22' }}"
+
+      - name: Open PR if changed
+        if: steps.latest.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/asterisk-${{ steps.latest.outputs.version }}
+          base: main
+          title: "feat: bump Asterisk to ${{ steps.latest.outputs.version }}"
+          commit-message: |
+            feat: bump Asterisk to ${{ steps.latest.outputs.version }}
+
+            Automated upstream release discovery.
+            VERSION: ${{ steps.latest.outputs.previous }} -> ${{ steps.latest.outputs.version }}
+            SHA256:  ${{ steps.latest.outputs.sha256 }}
+          body: |
+            Automated PR from **Discover upstream Asterisk**.
+
+            | Field | Before | After |
+            | --- | --- | --- |
+            | `VERSION` | `${{ steps.latest.outputs.previous }}` | `${{ steps.latest.outputs.version }}` |
+            | `ASTERISK_SHA256` | (previous) | `${{ steps.latest.outputs.sha256 }}` |
+
+            Verify the checksum by hand:
+
+            ```bash
+            curl -fsSL \
+              https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-${{ steps.latest.outputs.version }}.tar.gz.sha256
+            ```
+
+            Merging this PR will trigger a full multi-arch rebuild via `release.yml`
+            (image inputs changed) and release-please will fold the change into
+            the next packaging release.
+          labels: |
+            dependencies
+            upstream-asterisk
+          delete-branch: true
+          sign-commits: false

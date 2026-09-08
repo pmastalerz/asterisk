@@ -1,0 +1,81 @@
+name: Image Scan
+
+# Vulnerability scan of the published image. Runs:
+#   - after Release finishes (workflow_run), so freshly pushed :latest is checked
+#   - weekly, to surface new CVEs discovered against an unchanged image
+#   - on manual dispatch
+#
+# HIGH+CRITICAL fixable findings fail the job; unfixed CVEs are reported but
+# do not fail (per --ignore-unfixed). Results also uploaded to GitHub Code
+# Scanning.
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  schedule:
+    - cron: "43 5 * * 1"   # Monday 05:43 UTC
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Image to scan
+        default: ghcr.io/pmastalerz/asterisk:latest
+        required: false
+
+permissions:
+  contents: read
+  security-events: write
+  packages: read
+
+concurrency:
+  group: scan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only run after Release *succeeded* (skip failed release runs).
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Determine image to scan
+        id: img
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.image || '' }}" ]; then
+            echo "image=${{ github.event.inputs.image }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=ghcr.io/${{ github.repository }}:latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trivy vulnerability scan (fail on HIGH+CRITICAL, fixed only)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ steps.img.outputs.image }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      - name: Trivy SARIF (full report → Code Scanning)
+        if: always()
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ steps.img.outputs.image }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: "0"
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image-scan

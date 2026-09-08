@@ -1,0 +1,32 @@
+name: Release Please
+
+# Manages the *packaging* version (semver, independent of upstream Asterisk).
+# On every push to main it opens/updates a "Release PR" that:
+#   - bumps .release-please-manifest.json based on Conventional Commits,
+#   - regenerates CHANGELOG.md,
+#   - and, when merged, creates the git tag `v<X.Y.Z>` + a GitHub Release.
+#
+# The `release.yml` workflow reacts to that tag by building + pushing the image
+# and appending the container-pull info to the auto-generated release body.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

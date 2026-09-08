@@ -1,0 +1,61 @@
+name: PR Title
+
+# Enforces Conventional Commit style PR titles so release-please can
+# categorize changes correctly. Because the repo uses squash-merge, the PR
+# title becomes the commit message on main.
+#
+# Examples that pass:
+#   feat: add ASTERISK_TERMINAL_OPTS support
+#   fix(entrypoint): honor PUID when it equals current uid
+#   feat!: drop the /var/lib/asterisk full-mount seed path (breaking)
+#   docs: clarify Unraid mount layout
+#   chore(deps): bump docker/build-push-action to v7.1.0
+#
+# Fails on ambiguous or missing type.
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            docs
+            refactor
+            test
+            build
+            ci
+            chore
+            revert
+            style
+          requireScope: false
+          subjectPattern: ^[a-z].+$
+          subjectPatternError: |
+            The subject "{subject}" must start with a lowercase letter.
+          # Skip PRs that follow their own conventions:
+          # - release-please tags its release PR with `autorelease: pending`
+          # - Dependabot PRs are labeled `dependencies` (their `chore(deps): bump …`
+          #   titles already satisfy the check, but we skip them defensively).
+          ignoreLabels: |
+            autorelease: pending
+            autorelease: tagged
+            dependencies

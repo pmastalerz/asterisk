@@ -3,9 +3,34 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
-    open-pull-requests-limit: 1
+      interval: weekly
+    open-pull-requests-limit: 5
     groups:
       github-actions:
         patterns:
           - "*"
+    commit-message:
+      # release-please picks these up under "Chores" (hidden).
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+      - github-actions
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    labels:
+      - dependencies
+      - docker
+    # Only track the base image line; ARG-only bumps (bookworm → trixie) will
+    # come through here as a proper PR.
+    ignore:
+      - dependency-name: "debian"
+        update-types:
+          - version-update:semver-major

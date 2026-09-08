@@ -17,12 +17,15 @@ help:
 	@echo "  make smoke-published   Smoke-test $(PUBLISHED)"
 	@echo "  make shellcheck        Lint shell scripts"
 
+REVISION ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+
 build:
 	docker build \
 	  --build-arg ASTERISK_VERSION="$(ASTERISK_VERSION)" \
 	  --build-arg ASTERISK_SHA256="$(ASTERISK_SHA256)" \
 	  --build-arg VERSION="$(VERSION)" \
 	  --build-arg BUILD_DATE="$(BUILD_DATE)" \
+	  --build-arg REVISION="$(REVISION)" \
 	  -t "$(IMAGE)" .
 
 smoke:
@@ -33,5 +36,12 @@ smoke-published:
 	./scripts/smoke-test.sh "$(PUBLISHED)"
 
 shellcheck:
-	shellcheck -x root/entrypoint.sh root/app/seed-config.sh root/app/seed-varlib.sh root/healthcheck.sh \
-	  scripts/smoke-test.sh build/menuselect-config.sh
+	shellcheck -x \
+	  root/entrypoint.sh \
+	  root/app/seed-config.sh \
+	  root/app/seed-varlib.sh \
+	  root/app/render-templates.sh \
+	  root/healthcheck.sh \
+	  scripts/smoke-test.sh \
+	  scripts/check-upstream.sh \
+	  build/menuselect-config.sh

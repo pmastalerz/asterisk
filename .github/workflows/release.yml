@@ -53,29 +53,44 @@ jobs:
 
       - name: Decide
         id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_BUILD: ${{ inputs.force_build }}
+          REF: ${{ github.ref }}
+          IMAGE_CHANGED: ${{ steps.filter.outputs.image }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ inputs.force_build }}" = "true" ]; then
-              echo "compile=true" >> "$GITHUB_OUTPUT"
-              echo "verify=false" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$FORCE_BUILD" = "true" ]; then
+              {
+                echo "compile=true"
+                echo "verify=false"
+              } >> "$GITHUB_OUTPUT"
               echo "Manual dispatch: full rebuild"
             else
-              echo "compile=false" >> "$GITHUB_OUTPUT"
-              echo "verify=true" >> "$GITHUB_OUTPUT"
+              {
+                echo "compile=false"
+                echo "verify=true"
+              } >> "$GITHUB_OUTPUT"
               echo "Manual dispatch: smoke against latest only"
             fi
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "compile=true" >> "$GITHUB_OUTPUT"
-            echo "verify=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$REF" == refs/tags/v* ]]; then
+            {
+              echo "compile=true"
+              echo "verify=false"
+            } >> "$GITHUB_OUTPUT"
             echo "Tag push: full rebuild + GitHub Release"
-          elif [ "${{ steps.filter.outputs.image }}" = "true" ]; then
-            echo "compile=true" >> "$GITHUB_OUTPUT"
-            echo "verify=false" >> "$GITHUB_OUTPUT"
+          elif [ "$IMAGE_CHANGED" = "true" ]; then
+            {
+              echo "compile=true"
+              echo "verify=false"
+            } >> "$GITHUB_OUTPUT"
             echo "Image inputs changed — rebuild and publish"
           else
-            echo "compile=false" >> "$GITHUB_OUTPUT"
-            echo "verify=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "compile=false"
+              echo "verify=true"
+            } >> "$GITHUB_OUTPUT"
             echo "Docs/CI-only change — smoke published image"
           fi
 
@@ -134,9 +149,11 @@ jobs:
       - name: Read build args
         id: ver
         run: |
-          echo "asterisk_version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
-          echo "asterisk_sha256=$(tr -d '[:space:]' < ASTERISK_SHA256)" >> "$GITHUB_OUTPUT"
-          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          {
+            echo "asterisk_version=$(tr -d '[:space:]' < VERSION)"
+            echo "asterisk_sha256=$(tr -d '[:space:]' < ASTERISK_SHA256)"
+            echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push by digest
         id: build
@@ -145,12 +162,14 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: true
-          provenance: false
+          provenance: mode=max
+          sbom: true
           outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
           build-args: |
             ASTERISK_VERSION=${{ steps.ver.outputs.asterisk_version }}
             ASTERISK_SHA256=${{ steps.ver.outputs.asterisk_sha256 }}
             VERSION=${{ github.ref_name }}
+            REVISION=${{ github.sha }}
             BUILD_DATE=${{ steps.ver.outputs.build_date }}
           cache-from: |
             type=gha,scope=asterisk-${{ matrix.pair }}
@@ -215,8 +234,11 @@ jobs:
             type=sha,prefix=sha-,format=short
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable={{is_default_branch}}
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ steps.ver.outputs.asterisk_version }}_debian-bookworm,enable={{is_default_branch}}
+            type=raw,value=${{ steps.ver.outputs.asterisk_version }}_debian-bookworm,enable=${{ startsWith(github.ref, 'refs/tags/') }}
 
       - name: Create manifest list
         id: push
@@ -255,11 +277,20 @@ jobs:
           chmod +x scripts/smoke-test.sh
           ./scripts/smoke-test.sh asterisk:release-test
 
-      - name: Create GitHub Release (tags only)
+      - name: Attest build provenance (multi-arch manifest)
+        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      # Append container-pull info to the release-please-created GitHub Release.
+      - name: Append image info to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
+          append_body: true
           body: |
             ## Container image
 
@@ -270,8 +301,16 @@ jobs:
 
             Upstream Asterisk: **${{ steps.ver.outputs.asterisk_version }}**
 
-            ## Digests
+            ## Digest
 
             ```
             ${{ steps.push.outputs.digest }}
+            ```
+
+            Signed provenance is attested via GitHub OIDC + Sigstore; verify with:
+
+            ```bash
+            gh attestation verify \
+              oci://ghcr.io/${{ github.repository }}:${{ github.ref_name }} \
+              --repo ${{ github.repository }}
             ```
