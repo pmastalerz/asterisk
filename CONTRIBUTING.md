@@ -15,6 +15,11 @@ Thanks for taking an interest in this project.
 3. Test locally when possible:
 
    ```bash
+   # Fast: smoke against the published image
+   docker pull ghcr.io/pmastalerz/asterisk:latest
+   ./scripts/smoke-test.sh ghcr.io/pmastalerz/asterisk:latest
+
+   # Full rebuild only when changing Dockerfile / menuselect / VERSION
    export ASTERISK_VERSION="$(cat VERSION)"
    docker build \
      --build-arg ASTERISK_VERSION="$ASTERISK_VERSION" \
@@ -26,7 +31,9 @@ Thanks for taking an interest in this project.
 
 4. Open a pull request against `main`
 
-CI builds the image and runs smoke tests on every PR. Required checks must pass before merge.
+CI on PRs pulls `ghcr.io/pmastalerz/asterisk:latest` and runs smoke tests (no compile).
+A full image rebuild runs on `main` only when `VERSION`, `Dockerfile`, `.dockerignore`, or `build/**` change
+(or on version tags / manual Release dispatch). Required checks must pass before merge.
 
 ## Scope guidelines
 

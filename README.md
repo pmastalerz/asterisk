@@ -171,8 +171,13 @@ On first start (empty config volume):
 
 ## CI / releases
 
-- **Pull requests** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) builds the image and runs [`scripts/smoke-test.sh`](scripts/smoke-test.sh). Required status checks gate merges on `main`.
-- **`main` / tags `v*`** — [`.github/workflows/release.yml`](.github/workflows/release.yml) re-tests, pushes multi-arch images to GHCR, and creates a GitHub Release for version tags.
+- **Pull requests** — pull `ghcr.io/pmastalerz/asterisk:latest` + [`scripts/smoke-test.sh`](scripts/smoke-test.sh) (no Asterisk compile).
+- **`main`** — full multi-arch **rebuild/publish** only when compile inputs change: `VERSION`, `Dockerfile`, `.dockerignore`, `build/**`. Otherwise smoke-tests the published image (same Asterisk version → no recompile).
+- **Tags `v*` / manual dispatch** — always rebuild (dispatch can opt into smoke-only).
+- Cache: GHA + `ghcr.io/pmastalerz/asterisk:buildcache`.
+
+> Packaging-only edits under `root/` do not rebuild the image until the next compile trigger (or a manual Release dispatch). Use dispatch when you need a packaging fix published without bumping `VERSION`.
+
 
 ## Contributing
 
