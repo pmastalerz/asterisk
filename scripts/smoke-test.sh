@@ -24,6 +24,23 @@ trap cleanup EXIT
 
 MOUNTS=()
 
+# --- Capability detection (skip forward-looking asserts on older images) ---
+HAS_PS=false
+if docker run --rm --entrypoint /bin/sh "$IMAGE" -c "command -v ps >/dev/null" 2>/dev/null; then
+  HAS_PS=true
+fi
+
+HAS_TERMINAL_OPTS=false
+HAS_PRIV_DROP=false
+default_cmd="$(docker inspect --format '{{join .Config.Cmd " "}}' "$IMAGE" 2>/dev/null || true)"
+if echo "$default_cmd" | grep -qE '(^| )-W( |$)'; then
+  HAS_TERMINAL_OPTS=true
+fi
+if echo "$default_cmd" | grep -qF -- "-U asterisk"; then
+  HAS_PRIV_DROP=true
+fi
+echo "==> capabilities: ps=$HAS_PS  terminal_opts=$HAS_TERMINAL_OPTS  priv_drop=$HAS_PRIV_DROP"
+
 # Images with seed-varlib must start on an empty /var/lib/asterisk bind (Unraid case).
 if docker run --rm --entrypoint test "$IMAGE" -x /app/seed-varlib.sh 2>/dev/null; then
   TMPLIB="$(mktemp -d)"
@@ -100,24 +117,32 @@ if [ -n "$TMPCFG" ]; then
   echo "$rendered" | grep -F "external_media_address=203.0.113.99" >/dev/null
 fi
 
-echo "==> ASTERISK_TERMINAL_OPTS swapped -W (checking args for -n, no -W)"
-ps_out="$(docker exec "$NAME" ps -o args= -C asterisk 2>/dev/null || true)"
-echo "$ps_out"
-if echo "$ps_out" | grep -F -- "-W" >/dev/null; then
-  echo "ERROR: '-W' still present in asterisk args (ASTERISK_TERMINAL_OPTS not honored)" >&2
-  exit 1
-fi
-if ! echo "$ps_out" | grep -F -- "-n" >/dev/null; then
-  echo "ERROR: '-n' missing from asterisk args (ASTERISK_TERMINAL_OPTS not applied)" >&2
-  exit 1
+if $HAS_TERMINAL_OPTS && $HAS_PS; then
+  echo "==> ASTERISK_TERMINAL_OPTS swapped -W (checking args for -n, no -W)"
+  ps_out="$(docker exec "$NAME" ps -o args= -C asterisk 2>/dev/null || true)"
+  echo "$ps_out"
+  if echo "$ps_out" | grep -F -- "-W" >/dev/null; then
+    echo "ERROR: '-W' still present in asterisk args (ASTERISK_TERMINAL_OPTS not honored)" >&2
+    exit 1
+  fi
+  if ! echo "$ps_out" | grep -F -- "-n" >/dev/null; then
+    echo "ERROR: '-n' missing from asterisk args (ASTERISK_TERMINAL_OPTS not applied)" >&2
+    exit 1
+  fi
+else
+  echo "==> skip terminal-opts check (image lacks -W placeholder in CMD or /bin/ps)"
 fi
 
-echo "==> Asterisk process is running as user 'asterisk' (privilege drop)"
-user_out="$(docker exec "$NAME" sh -c "ps -o user= -C asterisk | head -n1 | tr -d ' '")"
-echo "user: $user_out"
-if [ "$user_out" != "asterisk" ]; then
-  echo "ERROR: expected asterisk user, got '$user_out'" >&2
-  exit 1
+if $HAS_PRIV_DROP && $HAS_PS; then
+  echo "==> Asterisk process is running as user 'asterisk' (privilege drop)"
+  user_out="$(docker exec "$NAME" sh -c "ps -o user= -C asterisk | head -n1 | tr -d ' '")"
+  echo "user: $user_out"
+  if [ "$user_out" != "asterisk" ]; then
+    echo "ERROR: expected asterisk user, got '$user_out'" >&2
+    exit 1
+  fi
+else
+  echo "==> skip priv-drop check (image lacks '-U asterisk' in CMD or /bin/ps)"
 fi
 
 echo "OK: smoke tests passed for $IMAGE"

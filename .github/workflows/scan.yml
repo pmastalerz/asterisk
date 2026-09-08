@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: Trivy vulnerability scan (fail on HIGH+CRITICAL, fixed only)
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: ${{ steps.img.outputs.image }}
           severity: HIGH,CRITICAL
@@ -64,7 +64,7 @@ jobs:
 
       - name: Trivy SARIF (full report → Code Scanning)
         if: always()
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: ${{ steps.img.outputs.image }}
           format: sarif
