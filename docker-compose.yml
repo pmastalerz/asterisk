@@ -16,8 +16,13 @@ services:
       - PGID=${PGID:-1000}
       - TZ=${TZ:-Europe/Warsaw}
     volumes:
+      # Config (dialplan, pjsip, …)
       - ./config:/etc/asterisk
-      - ./data:/var/lib/asterisk
+      # Persist only mutable data — do NOT mount all of /var/lib/asterisk
+      # (that hides image documentation/ and breaks Stasis on empty appdata).
+      - ./db:/var/lib/asterisk/db
+      - ./keys:/var/lib/asterisk/keys
+      - ./sounds:/var/lib/asterisk/sounds
       - ./log:/var/log/asterisk
       - ./spool:/var/spool/asterisk
     # Bridge mode (only if you drop network_mode: host):

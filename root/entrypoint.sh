@@ -2,6 +2,7 @@
 set -eu
 
 /app/seed-config.sh
+/app/seed-varlib.sh
 
 uid="${PUID:-1000}"
 gid="${PGID:-1000}"
@@ -14,6 +15,9 @@ fi
 mkdir -p \
   /etc/asterisk \
   /var/lib/asterisk \
+  /var/lib/asterisk/db \
+  /var/lib/asterisk/keys \
+  /var/lib/asterisk/sounds \
   /var/log/asterisk \
   /var/spool/asterisk/monitor \
   /var/run/asterisk
