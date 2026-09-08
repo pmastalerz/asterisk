@@ -29,7 +29,7 @@ Host network is usually simplest for SIP + RTP; bridge requires publishing signa
   <DonateLink/>
   <Requires/>
   <Config Name="Asterisk config" Target="/etc/asterisk" Default="/mnt/user/appdata/asterisk/etc" Mode="rw" Description="Asterisk configuration (pjsip, dialplan, rtp)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/asterisk/etc</Config>
-  <Config Name="Asterisk data" Target="/var/lib/asterisk" Default="/mnt/user/appdata/asterisk/lib" Mode="rw" Description="Asterisk var lib (sounds, astdb, keys)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/asterisk/lib</Config>
+  <Config Name="Asterisk data" Target="/var/lib/asterisk" Default="/mnt/user/appdata/asterisk/lib" Mode="rw" Description="Asterisk var lib (astdb, keys, sounds). First start seeds documentation/ from the image — required for Asterisk to start." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/asterisk/lib</Config>
   <Config Name="Asterisk logs" Target="/var/log/asterisk" Default="/mnt/user/appdata/asterisk/log" Mode="rw" Description="Asterisk logs" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/asterisk/log</Config>
   <Config Name="Asterisk spool" Target="/var/spool/asterisk" Default="/mnt/user/appdata/asterisk/spool" Mode="rw" Description="Voicemail, monitor, spool" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/asterisk/spool</Config>
   <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User id (Unraid default share user is often 99)" Type="Variable" Display="always" Required="false" Mask="false">99</Config>

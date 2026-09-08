@@ -168,11 +168,14 @@ COPY --from=builder /var/log/asterisk /var/log/asterisk
 COPY --from=builder /var/run/asterisk /var/run/asterisk
 COPY --from=builder /etc/asterisk /etc/asterisk.default
 
+# Keep a pristine copy for bind-mounted /var/lib/asterisk (Unraid appdata).
+RUN cp -a /var/lib/asterisk /var/lib/asterisk.default
+
 # Our defaults + entrypoint (Unraid / first-run seed)
 COPY root/ /
 
-RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh /healthcheck.sh \
- && chmod +x /entrypoint.sh /app/seed-config.sh /healthcheck.sh \
+RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh /app/seed-varlib.sh /healthcheck.sh \
+ && chmod +x /entrypoint.sh /app/seed-config.sh /app/seed-varlib.sh /healthcheck.sh \
  && groupadd -r -g 1000 asterisk \
  && useradd -r -u 1000 -g asterisk -d /var/lib/asterisk -s /usr/sbin/nologin asterisk \
  && mkdir -p /etc/asterisk \
@@ -180,6 +183,7 @@ RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh /healthcheck.sh \
       /etc/asterisk \
       /etc/asterisk.default \
       /var/lib/asterisk \
+      /var/lib/asterisk.default \
       /var/spool/asterisk \
       /var/log/asterisk \
       /var/run/asterisk \

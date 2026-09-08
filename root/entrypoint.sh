@@ -2,6 +2,7 @@
 set -eu
 
 /app/seed-config.sh
+/app/seed-varlib.sh
 
 uid="${PUID:-1000}"
 gid="${PGID:-1000}"

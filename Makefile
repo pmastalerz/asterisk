@@ -33,5 +33,5 @@ smoke-published:
 	./scripts/smoke-test.sh "$(PUBLISHED)"
 
 shellcheck:
-	shellcheck -x root/entrypoint.sh root/app/seed-config.sh root/healthcheck.sh \
+	shellcheck -x root/entrypoint.sh root/app/seed-config.sh root/app/seed-varlib.sh root/healthcheck.sh \
 	  scripts/smoke-test.sh build/menuselect-config.sh

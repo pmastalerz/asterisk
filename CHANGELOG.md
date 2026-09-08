@@ -4,6 +4,7 @@ Notable changes to this packaging repository. Upstream Asterisk is pinned via `V
 
 ## Unreleased
 
+- Seed `/var/lib/asterisk` (especially `documentation/`) when bind mounts are empty — fixes Stasis crash on Unraid/Docker
 ## 0.2.0 — 2026-09-08
 
 - SHA-256 verification of the Asterisk tarball (`ASTERISK_SHA256`)

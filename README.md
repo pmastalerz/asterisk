@@ -47,7 +47,7 @@ Put your dialplan / PJSIP / RTP settings in the bind-mounted `/etc/asterisk` vol
 | `TZ` | `Europe/Warsaw` | Timezone |
 | `ASTERISK_ARGS` | _(empty)_ | Extra `asterisk` flags (e.g. `-g`) |
 
-On first start, missing config files are seeded from thin overlays (`paths`, logging, RTP, module noloads) plus Asterisk sample configs.
+On first start, missing config files are seeded from thin overlays (paths, logging, RTP, module noloads) plus Asterisk sample configs. Missing data under `/var/lib/asterisk` (especially `documentation/`) is seeded from the image — an empty bind mount would otherwise hide those files and Asterisk will refuse to start.
 
 **Network:** host mode is simplest for SIP + RTP. On bridge, publish `5060/udp` (and usually `5060/tcp`) plus your RTP range from `rtp.conf` (default overlay: `10000–20000/udp`).
 
