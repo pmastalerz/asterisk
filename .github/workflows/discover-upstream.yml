@@ -38,7 +38,7 @@ jobs:
 
       - name: Open PR if changed
         if: steps.latest.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: chore/asterisk-${{ steps.latest.outputs.version }}
           base: main
