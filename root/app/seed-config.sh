@@ -1,3 +1,4 @@
+#!/bin/sh
 # Prefer packaging overlays; fill remaining gaps from Asterisk sample tree.
 set -eu
 
