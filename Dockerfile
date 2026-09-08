@@ -5,6 +5,7 @@
 #
 #   docker build \
 #     --build-arg ASTERISK_VERSION="$(cat VERSION)" \
+#     --build-arg ASTERISK_SHA256="$(tr -d '[:space:]' < ASTERISK_SHA256)" \
 #     --build-arg VERSION=dev \
 #     -t asterisk:dev .
 
@@ -16,6 +17,7 @@ ARG DEBIAN_VERSION=bookworm
 FROM debian:${DEBIAN_VERSION}-slim AS builder
 
 ARG ASTERISK_VERSION=22.11.0
+ARG ASTERISK_SHA256
 ARG ASTERISK_JOBS=0
 ENV ASTERISK_VERSION=${ASTERISK_VERSION} \
     DEBIAN_FRONTEND=noninteractive
@@ -24,9 +26,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     curl \
-    wget \
-    subversion \
-    gnupg \
     pkg-config \
     python3 \
     libedit-dev \
@@ -52,23 +51,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsnmp-dev \
     libcap-dev \
     libsnmp-base \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src
 
-# Official release tarball (not git HEAD) — reproducible OSS builds.
-RUN curl -fsSL \
+# Official release tarball — reproducible OSS builds with SHA-256 verification.
+RUN test -n "${ASTERISK_SHA256}" || (echo "ASTERISK_SHA256 build-arg is required" >&2; exit 1) \
+ && curl -fsSL \
       "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-${ASTERISK_VERSION}.tar.gz" \
       -o asterisk.tar.gz \
+ && echo "${ASTERISK_SHA256}  asterisk.tar.gz" | sha256sum -c - \
  && tar xzf asterisk.tar.gz \
  && mv "asterisk-${ASTERISK_VERSION}" asterisk \
  && rm asterisk.tar.gz
 
 WORKDIR /usr/src/asterisk
-
-# Optional MP3 decode support for MusicOnHold samples.
-# Must succeed when format_mp3 is enabled in menuselect-config.sh.
-RUN contrib/scripts/get_mp3_source.sh
 
 COPY build/menuselect-config.sh /usr/local/bin/menuselect-config.sh
 RUN chmod +x /usr/local/bin/menuselect-config.sh
@@ -95,6 +93,8 @@ RUN ./configure \
  && make samples \
  && make config \
  && ldconfig \
+ && find /usr/sbin /usr/lib/asterisk /usr/lib -type f \( -name 'asterisk' -o -name '*.so' -o -name 'libasterisk*' \) \
+      -exec strip --strip-unneeded {} + 2>/dev/null || true \
  && asterisk -V
 
 # ---------------------------------------------------------------------------
@@ -171,8 +171,8 @@ COPY --from=builder /etc/asterisk /etc/asterisk.default
 # Our defaults + entrypoint (Unraid / first-run seed)
 COPY root/ /
 
-RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh \
- && chmod +x /entrypoint.sh /app/seed-config.sh \
+RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh /healthcheck.sh \
+ && chmod +x /entrypoint.sh /app/seed-config.sh /healthcheck.sh \
  && groupadd -r -g 1000 asterisk \
  && useradd -r -u 1000 -g asterisk -d /var/lib/asterisk -s /usr/sbin/nologin asterisk \
  && mkdir -p /etc/asterisk \
@@ -183,14 +183,15 @@ RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh \
       /var/spool/asterisk \
       /var/log/asterisk \
       /var/run/asterisk \
- && ldconfig
+ && ldconfig \
+ && asterisk -V
 
 EXPOSE 5060/udp 5060/tcp 8088/tcp 8089/tcp 10000-20000/udp
 
 VOLUME ["/etc/asterisk", "/var/lib/asterisk", "/var/log/asterisk", "/var/spool/asterisk"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD asterisk -rx "core show version" >/dev/null 2>&1 || exit 1
+  CMD ["/healthcheck.sh"]
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["asterisk", "-f", "-vvv"]

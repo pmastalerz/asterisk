@@ -49,5 +49,11 @@ srtp_out="$(docker exec "$NAME" asterisk -rx "module show like res_srtp")"
 echo "$srtp_out"
 echo "$srtp_out" | grep -E 'res_srtp(\.so)?[[:space:]]' >/dev/null
 
-echo "==> healthcheck (core show version via CLI already passed)"
+echo "==> healthcheck script"
+if docker exec "$NAME" test -x /healthcheck.sh; then
+  docker exec "$NAME" /healthcheck.sh
+else
+  echo "(image has no /healthcheck.sh yet — CLI readiness already verified)"
+fi
+
 echo "OK: smoke tests passed for $IMAGE"

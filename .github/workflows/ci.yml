@@ -13,8 +13,6 @@ permissions:
   contents: read
 
 env:
-  # PRs validate packaging/scripts against the published image — full compiles
-  # happen only in the Release workflow when compile inputs change.
   IMAGE: ghcr.io/${{ github.repository }}:latest
 
 jobs:
@@ -27,6 +25,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Lint shell scripts
+        run: make shellcheck
 
       - name: Pull published image
         run: |
