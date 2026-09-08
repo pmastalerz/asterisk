@@ -22,6 +22,9 @@ Thumbs.db
 
 # Local runtime volumes (compose)
 /config/
+/db/
+/keys/
+/sounds/
 /data/
 /log/
 /spool/
