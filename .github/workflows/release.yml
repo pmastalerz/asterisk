@@ -37,7 +37,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Full Asterisk compile only when upstream version or build inputs change.
       - name: Paths filter
         id: filter
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -46,6 +45,7 @@ jobs:
           filters: |
             compile:
               - 'VERSION'
+              - 'ASTERISK_SHA256'
               - 'Dockerfile'
               - '.dockerignore'
               - 'build/**'
@@ -71,14 +71,13 @@ jobs:
           elif [ "${{ steps.filter.outputs.compile }}" = "true" ]; then
             echo "compile=true" >> "$GITHUB_OUTPUT"
             echo "verify=false" >> "$GITHUB_OUTPUT"
-            echo "VERSION / Dockerfile / build/* changed — full Asterisk compile + publish"
+            echo "Compile inputs changed — full Asterisk compile + publish"
           else
             echo "compile=false" >> "$GITHUB_OUTPUT"
             echo "verify=true" >> "$GITHUB_OUTPUT"
             echo "Same Asterisk build inputs — smoke tests only (no image rebuild)"
           fi
 
-  # Same VERSION / no build-input changes: don't recompile; just check we didn't break runtime tests.
   verify:
     name: Smoke against latest
     needs: changes
@@ -100,19 +99,96 @@ jobs:
           chmod +x scripts/smoke-test.sh
           ./scripts/smoke-test.sh "${{ env.IMAGE_LATEST }}"
 
-  build-test-publish:
-    name: Build, test & publish
+  # Native builders (amd64 + arm64) — much faster than QEMU emulation.
+  build:
+    name: Build ${{ matrix.platform }}
     needs: changes
     if: needs.changes.outputs.compile == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            pair: linux-amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            pair: linux-arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read build args
+        id: ver
+        run: |
+          echo "asterisk_version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+          echo "asterisk_sha256=$(tr -d '[:space:]' < ASTERISK_SHA256)" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          provenance: false
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            ASTERISK_VERSION=${{ steps.ver.outputs.asterisk_version }}
+            ASTERISK_SHA256=${{ steps.ver.outputs.asterisk_sha256 }}
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ steps.ver.outputs.build_date }}
+          cache-from: |
+            type=gha,scope=asterisk-${{ matrix.pair }}
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.pair }}
+          cache-to: |
+            type=gha,mode=max,scope=asterisk-${{ matrix.pair }}
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache-${{ matrix.pair }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          echo "${digest}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.pair }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge, smoke & release
+    needs: [changes, build]
+    if: needs.changes.outputs.compile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -126,9 +202,7 @@ jobs:
 
       - name: Read Asterisk version
         id: ver
-        run: |
-          echo "asterisk_version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
-          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+        run: echo "asterisk_version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Docker metadata
         id: meta
@@ -143,30 +217,34 @@ jobs:
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable={{is_default_branch}}
             type=raw,value=${{ steps.ver.outputs.asterisk_version }},enable=${{ startsWith(github.ref, 'refs/tags/') }}
 
-      - name: Build and push multi-arch
+      - name: Create manifest list
         id: push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            ASTERISK_VERSION=${{ steps.ver.outputs.asterisk_version }}
-            VERSION=${{ github.ref_name }}
-            BUILD_DATE=${{ steps.ver.outputs.build_date }}
-          cache-from: |
-            type=gha,scope=asterisk-release
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: |
-            type=gha,mode=max,scope=asterisk-release
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+        run: |
+          set -euo pipefail
+          TAG_ARGS=()
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            TAG_ARGS+=("-t" "$tag")
+          done <<< "${{ steps.meta.outputs.tags }}"
+
+          DIGEST_ARGS=()
+          for f in /tmp/digests/*; do
+            [ -f "$f" ] || continue
+            DIGEST_ARGS+=("${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:$(basename "$f")")
+          done
+
+          docker buildx imagetools create "${TAG_ARGS[@]}" "${DIGEST_ARGS[@]}"
+
+          # Resolve digest of the first tag for smoke/release notes.
+          FIRST_TAG="$(echo "${{ steps.meta.outputs.tags }}" | head -n1)"
+          DIGEST="$(docker buildx imagetools inspect "$FIRST_TAG" --format '{{.Manifest.Digest}}')"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "first_tag=${FIRST_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Pull amd64 image for smoke test
         run: |
           set -euo pipefail
-          REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}"
+          REF="${{ steps.push.outputs.first_tag }}"
           echo "Pulling $REF (linux/amd64)"
           docker pull --platform linux/amd64 "$REF"
           docker tag "$REF" asterisk:release-test

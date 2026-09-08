@@ -4,6 +4,7 @@
 #   - SRTP / DTLS-SRTP
 #   - HTTP WebSocket transport hooks
 #   - portable binaries (no BUILD_NATIVE)
+#   - no bundled sound packs (keeps builds fast / images smaller)
 #   - no legacy chan_sip, no ODBC (keeps logs/deps clean)
 #
 # Optional modules are enabled only when present in this Asterisk version
@@ -42,10 +43,24 @@ try_disable() {
   fi
 }
 
+try_disable_category() {
+  name="$1"
+  if ms --disable-category "${name}" >/dev/null 2>&1; then
+    echo "menuselect: disable-category ${name}"
+  else
+    echo "menuselect: skip disable-category ${name}"
+  fi
+}
+
 # Required / strongly expected for this image profile.
 ms --disable BUILD_NATIVE
 ms --enable res_srtp
-ms --enable format_mp3
+
+# Sound packs and MP3 add large downloads / build time; mount sounds at runtime if needed.
+try_disable format_mp3
+try_disable_category MENUSELECT_CORE_SOUNDS
+try_disable_category MENUSELECT_MOH
+try_disable_category MENUSELECT_EXTRA_SOUNDS
 
 # Softphone / WebRTC-friendly (enable when available).
 try_enable res_http_websocket

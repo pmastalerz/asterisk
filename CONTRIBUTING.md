@@ -15,25 +15,19 @@ Thanks for taking an interest in this project.
 3. Test locally when possible:
 
    ```bash
-   # Fast: smoke against the published image
-   docker pull ghcr.io/pmastalerz/asterisk:latest
-   ./scripts/smoke-test.sh ghcr.io/pmastalerz/asterisk:latest
-
-   # Full rebuild only when changing Dockerfile / menuselect / VERSION
-   export ASTERISK_VERSION="$(cat VERSION)"
-   docker build \
-     --build-arg ASTERISK_VERSION="$ASTERISK_VERSION" \
-     --build-arg VERSION=dev \
-     --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-     -t asterisk:dev .
-   ./scripts/smoke-test.sh asterisk:dev
+   make smoke-published   # fast — uses GHCR
+   make shellcheck
+   make build && make smoke   # only when changing VERSION / Dockerfile / menuselect
    ```
 
 4. Open a pull request against `main`
 
-CI on PRs pulls `ghcr.io/pmastalerz/asterisk:latest` and runs smoke tests (no compile).
-A full image rebuild runs on `main` only when `VERSION`, `Dockerfile`, `.dockerignore`, or `build/**` change
-(or on version tags / manual Release dispatch). Required checks must pass before merge.
+CI on PRs runs ShellCheck and smokes the published image (no compile).
+A full image rebuild runs on `main` only when `VERSION`, `ASTERISK_SHA256`, `Dockerfile`,
+`.dockerignore`, or `build/**` change (or on version tags / manual Release dispatch).
+
+When bumping Asterisk, update both `VERSION` and `ASTERISK_SHA256` (from
+`https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-VERSION.sha256`).
 
 ## Scope guidelines
 
@@ -42,8 +36,6 @@ A full image rebuild runs on `main` only when `VERSION`, `Dockerfile`, `.dockeri
 | Packaging, entrypoint, defaults, docs | Full PBX feature forks of Asterisk |
 | Documented menuselect profile tweaks | DAHDI / telephony hardware stacks |
 | Example configs under `examples/` | Bundling production secrets or real credentials |
-
-Bump `VERSION` only when targeting a published tarball from [downloads.asterisk.org](https://downloads.asterisk.org/pub/telephony/asterisk/).
 
 ## Code of conduct
 

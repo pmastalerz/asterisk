@@ -3,60 +3,15 @@
 [![CI](https://github.com/pmastalerz/asterisk/actions/workflows/ci.yml/badge.svg)](https://github.com/pmastalerz/asterisk/actions/workflows/ci.yml)
 [![Release](https://github.com/pmastalerz/asterisk/actions/workflows/release.yml/badge.svg)](https://github.com/pmastalerz/asterisk/actions/workflows/release.yml)
 [![GHCR](https://img.shields.io/badge/ghcr.io-pmastalerz%2Fasterisk-blue)](https://github.com/pmastalerz/asterisk/pkgs/container/asterisk)
+[![Asterisk](https://img.shields.io/badge/Asterisk-22.11.0-orange)](VERSION)
 [![License: GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](LICENSE)
 
 Universal **Asterisk LTS** Docker image built **from official sources**, with **Unraid** packaging (OCI labels + Dockerman template).
 
-General-purpose Asterisk container. Dialplans and endpoints live in your config volume — not in image defaults.
+Dialplans and endpoints live in your config volume — not in image defaults.
 
 ```bash
 docker pull ghcr.io/pmastalerz/asterisk:latest
-```
-
-## Config vs rebuild
-
-For normal use you only need:
-
-1. **Bind-mounted config** under `/etc/asterisk` (and optionally data/log/spool)
-2. **Env** — `PUID` / `PGID` / `TZ` / optional `ASTERISK_ARGS`
-
-You do **not** rebuild the image to add endpoints, dialplan, or passwords.
-
-| Change | How |
-| --- | --- |
-| Extensions, PJSIP, dialplan, RTP range | Edit files in the config volume |
-| Timezone / file ownership | `TZ`, `PUID`, `PGID` |
-| Extra `asterisk` CLI flags | `ASTERISK_ARGS` (e.g. `-g`) |
-| New Asterisk release | Bump `VERSION` → **rebuild** |
-| Extra compile-time modules | Edit `build/menuselect-config.sh` → **rebuild** |
-| DAHDI / telephony hardware | Out of scope (or extend menuselect) |
-
-Build profile: **PJSIP**, **SRTP**, **WebSocket** hooks, common audio codecs (**G.722**, ulaw/alaw, speex when available), portable binaries (no `BUILD_NATIVE`). Video (VP8/H.264) is typically **passthrough** via endpoint `allow=`. See [`examples/softphone-vpn/`](examples/softphone-vpn/).
-
-ODBC / database modules are disabled by default so container logs stay clean.
-
-## What you get
-
-1. **Reproducible source build** — official `asterisk-VERSION.tar.gz` from [downloads.asterisk.org](https://downloads.asterisk.org/pub/telephony/asterisk/)
-2. **Documented menuselect** — [`build/menuselect-config.sh`](build/menuselect-config.sh)
-3. **Slim Debian runtime** — multi-stage image, healthcheck, `PUID`/`PGID`/`TZ`
-4. **Unraid** — Dockerman labels + [`unraid/my-asterisk.xml`](unraid/my-asterisk.xml)
-5. **Safe first-run seed** — overlays + Asterisk samples only where files are missing
-6. **Examples** — [`examples/`](examples/) to copy into appdata
-7. **CI** — image build + smoke tests on every PR; releases publish to GHCR
-
-## Image tags
-
-| Tag | Meaning |
-| --- | --- |
-| `latest` | Latest successful build from `main` |
-| `sha-<commit>` | Immutable build for a specific commit |
-| `vX.Y.Z` | Git release tag |
-| `22.11.0` etc. | Upstream Asterisk version (from `VERSION`) |
-
-```bash
-docker pull ghcr.io/pmastalerz/asterisk:latest
-docker pull ghcr.io/pmastalerz/asterisk:22.11.0
 ```
 
 ## Quick start
@@ -71,47 +26,76 @@ docker run -d --name asterisk --network host \
   -v "$PWD/log:/var/log/asterisk" \
   -v "$PWD/spool:/var/spool/asterisk" \
   ghcr.io/pmastalerz/asterisk:latest
+
+docker exec -it asterisk asterisk -rvvv
 ```
 
-Or with Compose (see [`docker-compose.yml`](docker-compose.yml)):
+Or with Compose ([`docker-compose.yml`](docker-compose.yml)):
 
 ```bash
 cp -n .env.example .env
 mkdir -p config data log spool
-# Point compose at the published image, or build locally (below)
 docker compose up -d
 ```
 
-CLI:
+## Image tags
 
-```bash
-docker exec -it asterisk asterisk -rvvv
-```
+| Tag | Meaning |
+| --- | --- |
+| `latest` | Latest successful build from `main` |
+| `sha-<commit>` | Immutable build for a specific commit |
+| `vX.Y.Z` | Git release tag |
+| `22.11.0` etc. | Upstream Asterisk version (from `VERSION`) |
+
+## Config vs rebuild
+
+| Change | How |
+| --- | --- |
+| Extensions, PJSIP, dialplan, RTP range | Edit files in the config volume |
+| Timezone / file ownership | `TZ`, `PUID`, `PGID` |
+| Extra `asterisk` CLI flags | `ASTERISK_ARGS` (e.g. `-g`) |
+| New Asterisk release | Bump `VERSION` + `ASTERISK_SHA256` → **rebuild** |
+| Extra compile-time modules | Edit `build/menuselect-config.sh` → **rebuild** |
+| DAHDI / telephony hardware | Out of scope (or extend menuselect) |
+
+Build profile: **PJSIP**, **SRTP**, **WebSocket** hooks, common audio codecs (**G.722**, ulaw/alaw, speex when available), portable binaries (no `BUILD_NATIVE`). Bundled core/MOH/extra **sound packs are disabled** (faster builds, smaller image) — mount your own sounds under `/var/lib/asterisk/sounds` if needed. Video (VP8/H.264) is typically **passthrough** via endpoint `allow=`. See [`examples/softphone-vpn/`](examples/softphone-vpn/).
+
+ODBC / database modules are disabled by default so container logs stay clean.
+
+## What you get
+
+1. **Reproducible source build** — official tarball + SHA-256 pin (`VERSION` / `ASTERISK_SHA256`)
+2. **Documented menuselect** — [`build/menuselect-config.sh`](build/menuselect-config.sh)
+3. **Slim Debian runtime** — multi-stage image, `/healthcheck.sh`, `PUID`/`PGID`/`TZ`
+4. **Unraid** — Dockerman labels + [`unraid/my-asterisk.xml`](unraid/my-asterisk.xml)
+5. **Safe first-run seed** — overlays + Asterisk samples only where files are missing
+6. **Examples** — [`examples/`](examples/) to copy into appdata
+7. **CI** — ShellCheck + smoke against published GHCR on PRs; Release publishes native `amd64`/`arm64`
 
 ## Network notes
 
-### Host network (often easiest on Unraid)
+**Host network** (often easiest on Unraid): `network_mode: host`
 
-```yaml
-network_mode: host
-```
-
-### Bridge network
-
-Publish signalling (`5060/udp`, usually `5060/tcp`) and your RTP range from `rtp.conf` (default overlay: `10000–20000/udp`). Set `external_media_address` / `external_signaling_address` in PJSIP when NAT requires it.
+**Bridge:** publish signalling (`5060/udp`, usually `5060/tcp`) and your RTP range from `rtp.conf` (default overlay: `10000–20000/udp`). Set `external_media_address` / `external_signaling_address` in PJSIP when NAT requires it.
 
 ## Build locally
 
 ```bash
-export ASTERISK_VERSION="$(cat VERSION)"
+make build          # compiles Asterisk (slow)
+make smoke          # smoke-test local IMAGE
+make smoke-published
+make shellcheck
+```
 
+Or:
+
+```bash
 docker build \
-  --build-arg ASTERISK_VERSION="$ASTERISK_VERSION" \
+  --build-arg ASTERISK_VERSION="$(tr -d '[:space:]' < VERSION)" \
+  --build-arg ASTERISK_SHA256="$(tr -d '[:space:]' < ASTERISK_SHA256)" \
   --build-arg VERSION=dev \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   -t asterisk:dev .
-
-./scripts/smoke-test.sh asterisk:dev
 ```
 
 Optional: `ASTERISK_JOBS=4` build-arg to cap compile parallelism.
@@ -142,16 +126,17 @@ Copy [`unraid/my-asterisk.xml`](unraid/my-asterisk.xml) to `/boot/config/plugins
 ```text
 .
 ├── Dockerfile
-├── VERSION
+├── VERSION / ASTERISK_SHA256
+├── Makefile
 ├── build/menuselect-config.sh
 ├── scripts/smoke-test.sh
 ├── examples/
 ├── root/
 │   ├── entrypoint.sh
+│   ├── healthcheck.sh
 │   ├── app/seed-config.sh
 │   └── defaults/asterisk/
 ├── docker-compose.yml
-├── .env.example
 ├── unraid/my-asterisk.xml
 └── .github/workflows/
 ```
@@ -165,19 +150,20 @@ On first start (empty config volume):
 
 ## Customizing the build
 
-- Bump Asterisk: edit `VERSION` (must exist on [downloads.asterisk.org](https://downloads.asterisk.org/pub/telephony/asterisk/))
+- Bump Asterisk: set `VERSION` and matching `ASTERISK_SHA256` from [downloads.asterisk.org](https://downloads.asterisk.org/pub/telephony/asterisk/) (`asterisk-VERSION.sha256`)
 - Modules: edit `build/menuselect-config.sh`
 - Packaging overlays: edit `root/defaults/asterisk/`
 
 ## CI / releases
 
-- **Pull requests** — pull `ghcr.io/pmastalerz/asterisk:latest` + [`scripts/smoke-test.sh`](scripts/smoke-test.sh) (no Asterisk compile).
-- **`main`** — full multi-arch **rebuild/publish** only when compile inputs change: `VERSION`, `Dockerfile`, `.dockerignore`, `build/**`. Otherwise smoke-tests the published image (same Asterisk version → no recompile).
-- **Tags `v*` / manual dispatch** — always rebuild (dispatch can opt into smoke-only).
-- Cache: GHA + `ghcr.io/pmastalerz/asterisk:buildcache`.
+- **PRs** — ShellCheck + smoke against `ghcr.io/pmastalerz/asterisk:latest` (no compile)
+- **`main`** — full rebuild only when `VERSION`, `ASTERISK_SHA256`, `Dockerfile`, `.dockerignore`, or `build/**` change; otherwise smoke against `latest`
+- **Tags `v*` / manual dispatch** — rebuild (dispatch can choose smoke-only)
+- **Release builders** — native `ubuntu-latest` (amd64) + `ubuntu-24.04-arm` (arm64), then manifest merge
 
-> Packaging-only edits under `root/` do not rebuild the image until the next compile trigger (or a manual Release dispatch). Use dispatch when you need a packaging fix published without bumping `VERSION`.
+> Packaging-only edits under `root/` do not republish until the next compile trigger (or **Actions → Release → Run workflow**).
 
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
