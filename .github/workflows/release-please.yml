@@ -21,12 +21,38 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  actions: write   # allow triggering the Release workflow_dispatch for the new tag
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - id: release
+        uses: googleapis/release-please-action@v4
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # release-please pushes the git tag with GITHUB_TOKEN. GitHub Actions
+      # deliberately does NOT fire push/tag triggers when the push comes from
+      # GITHUB_TOKEN (to prevent recursive workflows). That means our
+      # `Release` workflow (which reacts to `push: tags: [v*]`) would silently
+      # skip the new tag and the image would never be tagged with `v<X.Y.Z>`
+      # or `<X.Y.Z>`, and provenance/release-body would not be appended.
+      #
+      # `workflow_dispatch` is explicitly allowed from GITHUB_TOKEN, so we
+      # dispatch the Release workflow ourselves, targeting the freshly
+      # created tag ref. That makes `github.ref = refs/tags/v<X.Y.Z>`, which
+      # the Release workflow already knows how to handle.
+      - name: Trigger Release workflow for new tag
+        if: steps.release.outputs.releases_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          echo "Dispatching Release workflow for tag: $TAG_NAME"
+          gh workflow run release.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$TAG_NAME" \
+            -f force_build=true
