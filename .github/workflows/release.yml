@@ -285,32 +285,41 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
-      # Append container-pull info to the release-please-created GitHub Release.
-      - name: Append image info to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v3
-        with:
-          append_body: true
-          body: |
-            ## Container image
-
-            ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            docker pull ghcr.io/${{ github.repository }}:${{ steps.ver.outputs.asterisk_version }}
-            ```
-
-            Upstream Asterisk: **${{ steps.ver.outputs.asterisk_version }}**
-
-            ## Digest
-
-            ```
-            ${{ steps.push.outputs.digest }}
-            ```
-
-            Signed provenance is attested via GitHub OIDC + Sigstore; verify with:
-
-            ```bash
-            gh attestation verify \
-              oci://ghcr.io/${{ github.repository }}:${{ github.ref_name }} \
-              --repo ${{ github.repository }}
-            ```
+      # NOTE: we intentionally do NOT edit the GitHub Release body here.
+      # release-please creates the Release using GITHUB_TOKEN as
+      # github-actions[bot], and a subsequent Release workflow run
+      # (also GITHUB_TOKEN) cannot edit that Release even with
+      # `contents: write` — GitHub returns "Resource not accessible by
+      # integration". Making it work requires a PAT / GitHub App token,
+      # which we don't want to require from users of the template.
+      #
+      # Container-pull, digest, and provenance verification instructions
+      # live in README.md, and image digests + tags are discoverable
+      # directly on the ghcr.io package page.
+      - name: Emit summary
+        if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          REF_NAME: ${{ github.ref_name }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+          ASTERISK_VERSION: ${{ steps.ver.outputs.asterisk_version }}
+        run: |
+          {
+            echo "### Container image"
+            echo ""
+            echo '```bash'
+            echo "docker pull ${IMAGE}:${REF_NAME}"
+            echo "docker pull ${IMAGE}:${ASTERISK_VERSION}"
+            echo '```'
+            echo ""
+            echo "**Upstream Asterisk:** ${ASTERISK_VERSION}"
+            echo ""
+            echo "**Digest:** \`${DIGEST}\`"
+            echo ""
+            echo "Signed provenance is attested via GitHub OIDC + Sigstore; verify with:"
+            echo '```bash'
+            echo "gh attestation verify \\"
+            echo "  oci://${IMAGE}:${REF_NAME} \\"
+            echo "  --repo ${{ github.repository }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
