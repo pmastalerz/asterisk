@@ -1,19 +1,19 @@
 # Changelog
 
-All notable changes to this packaging repository are documented here.
-Upstream Asterisk releases are tracked via the `VERSION` / `ASTERISK_SHA256` files.
+Notable changes to this packaging repository. Upstream Asterisk is pinned via `VERSION` / `ASTERISK_SHA256`.
 
 ## Unreleased
 
-- Verify official Asterisk tarball SHA-256 during image builds
-- Skip bundled sound packs / MP3 fetch to speed compiles and shrink the image
-- Strip binaries after `make install`
-- Dedicated `/healthcheck.sh`
-- Native `amd64` + `arm64` release builders (no QEMU)
-- ShellCheck on PRs, Makefile helpers, changelog
+- Treat `root/**` as an image publish trigger so packaging stays aligned with `main`
+- Slim user-facing README; move release policy into CONTRIBUTING
+
+## 0.1.1 — 2026-09-08
+
+- SHA-256 verification of the Asterisk tarball
+- Faster builds: no bundled sound packs / `format_mp3`; strip binaries
+- Native `amd64` + `arm64` release builders
+- `/healthcheck.sh`, Makefile, ShellCheck on PRs
 
 ## 0.1.0 — 2026-09-08
 
-- Initial public packaging: Debian multi-stage image, Unraid template, examples
-- CI smoke tests against GHCR; Release publishes multi-arch images
-- Compile-gated rebuilds on `VERSION` / Dockerfile / `build/**` changes
+- Initial public image, Unraid template, examples, CI smoke + GHCR publish

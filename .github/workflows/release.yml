@@ -43,12 +43,13 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            compile:
+            image:
               - 'VERSION'
               - 'ASTERISK_SHA256'
               - 'Dockerfile'
               - '.dockerignore'
               - 'build/**'
+              - 'root/**'
 
       - name: Decide
         id: decide
@@ -68,14 +69,14 @@ jobs:
             echo "compile=true" >> "$GITHUB_OUTPUT"
             echo "verify=false" >> "$GITHUB_OUTPUT"
             echo "Tag push: full rebuild + GitHub Release"
-          elif [ "${{ steps.filter.outputs.compile }}" = "true" ]; then
+          elif [ "${{ steps.filter.outputs.image }}" = "true" ]; then
             echo "compile=true" >> "$GITHUB_OUTPUT"
             echo "verify=false" >> "$GITHUB_OUTPUT"
-            echo "Compile inputs changed — full Asterisk compile + publish"
+            echo "Image inputs changed — rebuild and publish"
           else
             echo "compile=false" >> "$GITHUB_OUTPUT"
             echo "verify=true" >> "$GITHUB_OUTPUT"
-            echo "Same Asterisk build inputs — smoke tests only (no image rebuild)"
+            echo "Docs/CI-only change — smoke published image"
           fi
 
   verify:
