@@ -11,75 +11,30 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read
 
 env:
-  IMAGE_LOCAL: asterisk:ci
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # PRs validate packaging/scripts against the published image — full compiles
+  # happen only in the Release workflow when image sources change.
+  IMAGE: ghcr.io/${{ github.repository }}:latest
 
 jobs:
   # Required check name stays stable for branch protection.
   build-and-test:
     name: Build & smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Detect image-related changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            image:
-              - 'Dockerfile'
-              - 'VERSION'
-              - '.dockerignore'
-              - 'build/**'
-              - 'root/**'
-              - 'scripts/smoke-test.sh'
-              - 'docker-compose.yml'
-              - '.env.example'
-
-      - name: Skip notice
-        if: steps.filter.outputs.image != 'true' && github.event_name != 'workflow_dispatch'
+      - name: Pull published image
         run: |
-          echo "No image-related paths changed — skipping Asterisk image build."
-          echo "Touched docs/workflow/examples only; required check still passes."
-
-      - name: Set up Docker Buildx
-        if: steps.filter.outputs.image == 'true' || github.event_name == 'workflow_dispatch'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Read Asterisk version
-        id: ver
-        if: steps.filter.outputs.image == 'true' || github.event_name == 'workflow_dispatch'
-        run: |
-          echo "asterisk_version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
-          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-
-      - name: Build image (amd64)
-        if: steps.filter.outputs.image == 'true' || github.event_name == 'workflow_dispatch'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          platforms: linux/amd64
-          tags: ${{ env.IMAGE_LOCAL }}
-          build-args: |
-            ASTERISK_VERSION=${{ steps.ver.outputs.asterisk_version }}
-            VERSION=ci-${{ github.sha }}
-            BUILD_DATE=${{ steps.ver.outputs.build_date }}
-          cache-from: |
-            type=gha,scope=asterisk-amd64
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=gha,mode=max,scope=asterisk-amd64
+          set -euo pipefail
+          echo "Using published image: ${{ env.IMAGE }}"
+          docker pull "${{ env.IMAGE }}"
 
       - name: Smoke test
-        if: steps.filter.outputs.image == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           chmod +x scripts/smoke-test.sh
-          ./scripts/smoke-test.sh "${{ env.IMAGE_LOCAL }}"
+          ./scripts/smoke-test.sh "${{ env.IMAGE }}"

@@ -171,8 +171,8 @@ On first start (empty config volume):
 
 ## CI / releases
 
-- **Pull requests** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs a full **amd64** image build + [`scripts/smoke-test.sh`](scripts/smoke-test.sh) only when image-related paths change (`Dockerfile`, `VERSION`, `build/`, `root/`, smoke script, …). Docs / workflow-only PRs skip the heavy build but still get a green required check.
-- **`main` / tags `v*`** — [`.github/workflows/release.yml`](.github/workflows/release.yml) publishes multi-arch images to GHCR when image paths change (tags and manual dispatch always build). Uses GHA + GHCR registry build cache; smoke-tests the pushed amd64 image (no second full compile).
+- **Pull requests** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) pulls `ghcr.io/pmastalerz/asterisk:latest` and runs [`scripts/smoke-test.sh`](scripts/smoke-test.sh). No Asterisk compile on PRs (keeps checks fast).
+- **`main` / tags `v*`** — [`.github/workflows/release.yml`](.github/workflows/release.yml) builds and publishes multi-arch images to GHCR when image paths change (`Dockerfile`, `VERSION`, `build/`, `root/`, …). Tags and manual dispatch always build. Uses GHA + GHCR `buildcache`; smoke-tests the pushed amd64 image once.
 
 ## Contributing
 
