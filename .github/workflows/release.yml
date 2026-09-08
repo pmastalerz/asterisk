@@ -40,7 +40,7 @@ jobs:
       - name: Paths filter
         id: filter
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             image:
@@ -186,7 +186,7 @@ jobs:
           touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ matrix.pair }}
           path: /tmp/digests/*
@@ -204,7 +204,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-*
@@ -279,7 +279,7 @@ jobs:
 
       - name: Attest build provenance (multi-arch manifest)
         if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
