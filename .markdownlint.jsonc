@@ -8,5 +8,8 @@
   // Don't require a top-level H1 (some files legitimately start below).
   "MD041": false,
   // First line doesn't need to be a heading in fragmentary docs.
-  "MD002": false
+  "MD002": false,
+  // Table cell padding is stylistic; pipes don't need to align.
+  // (introduced by markdownlint-cli2 v0.19; we prefer minimal-width tables)
+  "MD060": false
 }
