@@ -1,0 +1,12 @@
+{
+  // Long lines are fine in README tables etc.
+  "MD013": false,
+  // Allow inline HTML in issue templates / release notes.
+  "MD033": false,
+  // Duplicated headings are allowed inside separate sections.
+  "MD024": { "siblings_only": true },
+  // Don't require a top-level H1 (some files legitimately start below).
+  "MD041": false,
+  // First line doesn't need to be a heading in fragmentary docs.
+  "MD002": false
+}

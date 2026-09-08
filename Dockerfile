@@ -8,6 +8,9 @@
 #     --build-arg ASTERISK_SHA256="$(tr -d '[:space:]' < ASTERISK_SHA256)" \
 #     --build-arg VERSION=dev \
 #     -t asterisk:dev .
+#
+# All four ASTERISK_*/VERSION build-args are REQUIRED — the Dockerfile
+# intentionally defines no defaults so nothing silently builds an old version.
 
 ARG DEBIAN_VERSION=bookworm
 
@@ -16,7 +19,7 @@ ARG DEBIAN_VERSION=bookworm
 # ---------------------------------------------------------------------------
 FROM debian:${DEBIAN_VERSION}-slim AS builder
 
-ARG ASTERISK_VERSION=22.11.0
+ARG ASTERISK_VERSION
 ARG ASTERISK_SHA256
 ARG ASTERISK_JOBS=0
 ENV ASTERISK_VERSION=${ASTERISK_VERSION} \
@@ -57,7 +60,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /usr/src
 
 # Official release tarball — reproducible OSS builds with SHA-256 verification.
-RUN test -n "${ASTERISK_SHA256}" || (echo "ASTERISK_SHA256 build-arg is required" >&2; exit 1) \
+RUN test -n "${ASTERISK_VERSION}" || (echo "ASTERISK_VERSION build-arg is required" >&2; exit 1) \
+ && test -n "${ASTERISK_SHA256}" || (echo "ASTERISK_SHA256 build-arg is required" >&2; exit 1) \
  && curl -fsSL \
       "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-${ASTERISK_VERSION}.tar.gz" \
       -o asterisk.tar.gz \
@@ -102,9 +106,10 @@ RUN ./configure \
 # ---------------------------------------------------------------------------
 FROM debian:${DEBIAN_VERSION}-slim
 
-ARG ASTERISK_VERSION=22.11.0
+ARG ASTERISK_VERSION
 ARG BUILD_DATE
 ARG VERSION=dev
+ARG REVISION=
 ARG DEBIAN_VERSION=bookworm
 
 LABEL org.opencontainers.image.title="asterisk" \
@@ -113,6 +118,7 @@ LABEL org.opencontainers.image.title="asterisk" \
       org.opencontainers.image.url="https://github.com/pmastalerz/asterisk" \
       org.opencontainers.image.documentation="https://github.com/pmastalerz/asterisk#readme" \
       org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.licenses="GPL-2.0-only" \
       org.opencontainers.image.base.name="debian:${DEBIAN_VERSION}-slim" \
@@ -132,6 +138,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     tzdata \
+    gettext-base \
     libedit2 \
     libjansson4 \
     libsqlite3-0 \
@@ -174,8 +181,18 @@ RUN cp -a /var/lib/asterisk /var/lib/asterisk.default
 # Our defaults + entrypoint (Unraid / first-run seed)
 COPY root/ /
 
-RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh /app/seed-varlib.sh /healthcheck.sh \
- && chmod +x /entrypoint.sh /app/seed-config.sh /app/seed-varlib.sh /healthcheck.sh \
+RUN sed -i 's/\r$//' \
+      /entrypoint.sh \
+      /app/seed-config.sh \
+      /app/seed-varlib.sh \
+      /app/render-templates.sh \
+      /healthcheck.sh \
+ && chmod +x \
+      /entrypoint.sh \
+      /app/seed-config.sh \
+      /app/seed-varlib.sh \
+      /app/render-templates.sh \
+      /healthcheck.sh \
  && groupadd -r -g 1000 asterisk \
  && useradd -r -u 1000 -g asterisk -d /var/lib/asterisk -s /usr/sbin/nologin asterisk \
  && mkdir -p /etc/asterisk \
@@ -204,5 +221,8 @@ VOLUME [\
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD ["/healthcheck.sh"]
 
+# -U/-p drop root to the asterisk user after startup (defense-in-depth alongside
+# asterisk.conf's runuser= line, so a user-supplied asterisk.conf can't regress it).
+# -W is a placeholder the entrypoint swaps for ASTERISK_TERMINAL_OPTS if that env is set.
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["asterisk", "-f", "-vvv"]
+CMD ["asterisk", "-f", "-vvv", "-U", "asterisk", "-p", "-W"]

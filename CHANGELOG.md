@@ -1,12 +1,18 @@
 # Changelog
 
-Notable changes to this packaging repository. Upstream Asterisk is pinned via `VERSION` / `ASTERISK_SHA256`.
+All notable changes to this **packaging repository** are tracked here.
+This file is maintained by [release-please](https://github.com/googleapis/release-please)
+from [Conventional Commit](https://www.conventionalcommits.org/) PR titles —
+please do not edit it by hand.
 
-## Unreleased
+Upstream Asterisk is pinned via `VERSION` / `ASTERISK_SHA256`, tracked
+independently of the packaging SemVer below.
 
-- Prefer binding `db` / `keys` / `sounds` instead of all of `/var/lib/asterisk` (keeps image `documentation/` visible)
-- Seed `/var/lib/asterisk/documentation/` if someone still mounts an empty full varlib (Unraid Stasis crash)
-## 0.2.0 — 2026-09-08
+<!-- release-please -->
+
+## [0.2.0](https://github.com/pmastalerz/asterisk/releases/tag/v0.2.0) — 2026-09-08
+
+### Features
 
 - SHA-256 verification of the Asterisk tarball (`ASTERISK_SHA256`)
 - Faster builds: no bundled sound packs / `format_mp3`; strip binaries
@@ -16,6 +22,8 @@ Notable changes to this packaging repository. Upstream Asterisk is pinned via `V
 - Image rebuild on `main` when `VERSION` / Dockerfile / `build/**` / `root/**` change
 - Slimmer user-facing README; release policy in CONTRIBUTING
 
-## 0.1.0 — 2026-09-08
+## [0.1.0](https://github.com/pmastalerz/asterisk/releases/tag/v0.1.0) — 2026-09-08
+
+### Features
 
 - Initial public image, Unraid template, examples, CI smoke + GHCR publish

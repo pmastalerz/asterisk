@@ -1,0 +1,14 @@
+# Rules we deliberately relax for this Debian-slim + build-from-source image.
+ignored:
+  # Pinning apt-get versions is impractical for a rolling base image (debian:bookworm-slim).
+  - DL3008
+  # Allow curl+extract+cleanup in one RUN — reproducible & smaller layer.
+  - DL3003
+  # `sox` etc. don't need version pins on the runtime side.
+  - DL3015
+
+failure-threshold: error
+
+trustedRegistries:
+  - docker.io
+  - ghcr.io
