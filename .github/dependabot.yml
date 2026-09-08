@@ -10,8 +10,10 @@ updates:
         patterns:
           - "*"
     commit-message:
-      # release-please picks these up under "Chores" (hidden).
-      prefix: "chore(deps)"
+      # `include: scope` alone yields "chore(deps): bump ..." — no manual
+      # prefix needed. Combining prefix with include:scope double-nests
+      # the parens: "chore(deps)(deps): bump ...".
+      prefix: chore
       include: scope
     labels:
       - dependencies
@@ -23,7 +25,7 @@ updates:
       interval: weekly
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "chore(deps)"
+      prefix: chore
       include: scope
     labels:
       - dependencies
