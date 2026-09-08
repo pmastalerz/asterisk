@@ -192,7 +192,14 @@ RUN sed -i 's/\r$//' /entrypoint.sh /app/seed-config.sh /app/seed-varlib.sh /hea
 
 EXPOSE 5060/udp 5060/tcp 8088/tcp 8089/tcp 10000-20000/udp
 
-VOLUME ["/etc/asterisk", "/var/lib/asterisk", "/var/log/asterisk", "/var/spool/asterisk"]
+VOLUME [\
+  "/etc/asterisk", \
+  "/var/lib/asterisk/db", \
+  "/var/lib/asterisk/keys", \
+  "/var/lib/asterisk/sounds", \
+  "/var/log/asterisk", \
+  "/var/spool/asterisk"\
+]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD ["/healthcheck.sh"]
