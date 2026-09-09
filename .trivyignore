@@ -1,0 +1,22 @@
+# Exclusions for `trivy config` scans over this repository.
+# Format: one Trivy check id per line. Blank / `#`-prefixed lines are
+# ignored. Every entry MUST have a rationale immediately above it.
+
+# DS-0002 — "Specify at least 1 USER command in Dockerfile with non-root
+# user as argument".
+#
+# This image intentionally boots as root. The entrypoint script needs
+# root to:
+#   - reconcile the `asterisk` user's uid/gid with the runtime-provided
+#     PUID / PGID (Unraid volumes typically want 99:100),
+#   - chown the bind-mounted directories (/etc/asterisk, /var/log/asterisk,
+#     /var/lib/asterisk/{db,keys,sounds}, /var/spool/asterisk) so that
+#     Asterisk can write to them,
+#   - render `*.conf.template` files via envsubst.
+#
+# Once that is done, Asterisk itself drops privileges via `-U asterisk -p`
+# in CMD, so the long-running process does *not* run as root. Adding
+# `USER asterisk` at the Dockerfile level would break the entrypoint's
+# chown step and force users to pre-chown their volumes on the host
+# (which defeats the point of PUID/PGID).
+DS-0002

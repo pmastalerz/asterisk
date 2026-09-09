@@ -87,3 +87,5 @@ jobs:
           severity: MEDIUM,HIGH,CRITICAL
           exit-code: "1"
           format: table
+          # Exclusions live in .trivyignore with per-entry rationale.
+          trivyignores: .trivyignore
