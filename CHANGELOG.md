@@ -10,6 +10,13 @@ independently of the packaging SemVer below.
 
 <!-- release-please -->
 
+## [0.3.2](https://github.com/pmastalerz/asterisk/compare/v0.3.1...v0.3.2) (2026-09-09)
+
+
+### Features
+
+* **security:** scan only our own files, drop image CVE scan ([#23](https://github.com/pmastalerz/asterisk/issues/23)) ([2f9eaf5](https://github.com/pmastalerz/asterisk/commit/2f9eaf5e9220110fce5e7cd157716adb71b21f0c))
+
 ## [0.3.1](https://github.com/pmastalerz/asterisk/compare/v0.3.0...v0.3.1) (2026-09-09)
 
 
