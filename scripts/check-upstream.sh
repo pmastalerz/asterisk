@@ -36,7 +36,9 @@ NEW_VERSION="$(echo "$LATEST_FILE" \
 
 echo "==> Latest upstream: ${NEW_VERSION}"
 
-NEW_SHA="$(curl -fsSL "${INDEX_URL}${LATEST_FILE}.sha256" | awk 'NR==1{print $1}')"
+# downloads.asterisk.org publishes checksum files without the ".tar.gz" segment,
+# i.e. `asterisk-22.11.0.sha256` (not `asterisk-22.11.0.tar.gz.sha256`).
+NEW_SHA="$(curl -fsSL "${INDEX_URL}${LATEST_FILE%.tar.gz}.sha256" | awk 'NR==1{print $1}')"
 
 if [ -z "$NEW_SHA" ]; then
   echo "ERROR: could not read sha256 for ${LATEST_FILE}" >&2
