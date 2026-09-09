@@ -25,7 +25,13 @@ ARG ASTERISK_JOBS=0
 ENV ASTERISK_VERSION=${ASTERISK_VERSION} \
     DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Pull the latest security patches from bookworm-security before installing
+# build deps. Without this, the base image ships whatever was current when
+# debian:bookworm-slim was last rebuilt on Docker Hub, which lags upstream
+# security updates by weeks. `upgrade -y` picks them up on every build.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     curl \
@@ -134,7 +140,11 @@ ENV ASTERISK_VERSION=${ASTERISK_VERSION} \
     PGID=1000 \
     UMASK=0022
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Same rationale as the builder stage: apply pending bookworm-security
+# updates every build so the runtime image ships fresh libc/openssl/etc.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     tzdata \

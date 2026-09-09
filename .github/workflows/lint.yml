@@ -67,3 +67,23 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Lint shell scripts
         run: make shellcheck
+
+  # Trivy in **config** mode: scans the repository's own files
+  # (Dockerfile, GitHub Actions workflows, YAML, shell) for known
+  # misconfigurations. Deliberately does NOT scan the built image
+  # for CVEs — those come from Debian and are out of scope for this
+  # repository. See SECURITY.md.
+  trivy-config:
+    name: Config (trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Trivy misconfiguration scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: MEDIUM,HIGH,CRITICAL
+          exit-code: "1"
+          format: table

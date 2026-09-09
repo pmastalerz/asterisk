@@ -6,6 +6,9 @@ ignored:
   - DL3003
   # `sox` etc. don't need version pins on the runtime side.
   - DL3015
+  # `apt-get upgrade` is intentional: we want each build to pick up the
+  # latest bookworm-security patches (see SECURITY.md, Base image CVEs).
+  - DL3005
 
 failure-threshold: error
 
