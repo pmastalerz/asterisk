@@ -4,7 +4,7 @@
 [![Lint](https://github.com/pmastalerz/asterisk/actions/workflows/lint.yml/badge.svg)](https://github.com/pmastalerz/asterisk/actions/workflows/lint.yml)
 [![Release](https://github.com/pmastalerz/asterisk/actions/workflows/release.yml/badge.svg)](https://github.com/pmastalerz/asterisk/actions/workflows/release.yml)
 [![GHCR](https://img.shields.io/badge/ghcr.io-pmastalerz%2Fasterisk-blue)](https://github.com/pmastalerz/asterisk/pkgs/container/asterisk)
-[![Asterisk](https://img.shields.io/badge/Asterisk-22.11.0-orange)](VERSION)
+[![Asterisk](https://img.shields.io/badge/Asterisk-22.12.0-orange)](VERSION)
 [![License: GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue.svg)](LICENSE)
 
 Asterisk LTS as a Docker image, built from [official sources](https://downloads.asterisk.org/pub/telephony/asterisk/), with Unraid-friendly packaging, SHA-256-verified tarballs, Sigstore build provenance, and automated upstream release discovery.
