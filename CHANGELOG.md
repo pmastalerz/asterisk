@@ -10,6 +10,13 @@ independently of the packaging SemVer below.
 
 <!-- release-please -->
 
+## [0.3.3](https://github.com/pmastalerz/asterisk/compare/v0.3.2...v0.3.3) (2026-11-09)
+
+
+### Features
+
+* bump Asterisk to 22.12.0 ([#26](https://github.com/pmastalerz/asterisk/issues/26)) ([d0bfab8](https://github.com/pmastalerz/asterisk/commit/d0bfab8f380b3d8c4017684523f97efa83819b8f))
+
 ## [0.3.2](https://github.com/pmastalerz/asterisk/compare/v0.3.1...v0.3.2) (2026-09-09)
 
 
